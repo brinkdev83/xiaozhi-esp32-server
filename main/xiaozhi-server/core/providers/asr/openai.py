@@ -13,9 +13,12 @@ logger = setup_logging()
 class ASRProvider(ASRProviderBase):
     def __init__(self, config: dict, delete_audio_file: bool):
         self.interface_type = InterfaceType.NON_STREAM
-        self.api_key = config.get("api_key")
+        # Empty api_key in the config falls back to the OPENAI_API_KEY environment variable.
+        self.api_key = config.get("api_key") or os.environ.get("OPENAI_API_KEY")
         self.api_url = config.get("base_url")
         self.model = config.get("model_name")        
+        # Optional ISO-639-1 hint (e.g. "nl"); improves accuracy for non-Chinese speech.
+        self.language = config.get("language")
         self.output_dir = config.get("output_dir")
         self.delete_audio_file = delete_audio_file
 
@@ -40,6 +43,8 @@ class ASRProvider(ASRProviderBase):
             data = {
                 "model": self.model
             }
+            if self.language:
+                data["language"] = self.language
 
 
             with open(file_path, "rb") as audio_file:  # 使用with语句确保文件关闭

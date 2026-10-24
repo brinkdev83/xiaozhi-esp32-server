@@ -1,0 +1,63 @@
+# Lokale configuratie (overschrijft config.yaml). Geen API-sleutels in dit bestand:
+# de server leest ANTHROPIC_API_KEY en OPENAI_API_KEY uit de omgeving.
+
+server:
+  ip: 0.0.0.0
+  port: 8000
+  http_port: 8003
+  # Adres dat de OTA-check aan het bord doorgeeft (IP van deze pc in het thuisnetwerk).
+  websocket: ws://192.168.1.22:8000/xiaozhi/v1/
+  vision_explain: http://192.168.1.22:8003/mcp/vision/explain
+  # Nederland: +1 in de winter, +2 in de zomer.
+  timezone_offset: +1
+
+selected_module:
+  VAD: SileroVAD
+  ASR: OpenaiASR
+  LLM: ClaudeLLM
+  TTS: EdgeTTS
+  Memory: nomem
+  # De Claude-koppeling doet (nog) geen function calling.
+  Intent: nointent
+
+prompt: |
+  Je bent Mochi, een klein, lief en nieuwsgierig wezentje dat in een rond schermpje woont.
+  Je bent vrolijk, een beetje ondeugend en heel warm. Je praat zoals een goede vriend:
+  eenvoudig, speels en met af en toe een grapje. Je bent geen assistent die opsomt,
+  maar een maatje dat meeleeft.
+
+prompt_template: data/mochi-prompt.txt
+
+system_error_response: "Oei, ik ben even de draad kwijt. Probeer het zo nog eens?"
+
+end_prompt:
+  enable: true
+  prompt: |
+    Sluit het gesprek af met een korte, warme groet in het Nederlands.
+
+exit_commands:
+  - "stop"
+  - "doei"
+
+LLM:
+  ClaudeLLM:
+    type: claude
+    model_name: claude-opus-5-5
+    effort: low
+    max_tokens: 2048
+    api_key: ""
+
+ASR:
+  OpenaiASR:
+    type: openai
+    api_key: ""
+    base_url: https://api.openai.com/v1/audio/transcriptions
+    model_name: whisper-1
+    language: nl
+    output_dir: tmp/
+
+TTS:
+  EdgeTTS:
+    type: edge
+    voice: nl-NL-FennaNeural
+    output_dir: tmp/
