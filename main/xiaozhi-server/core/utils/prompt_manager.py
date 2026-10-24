@@ -288,6 +288,7 @@ class PromptManager:
             enhanced_prompt = template.render(
                 base_prompt=user_prompt,
                 current_time="{{current_time}}",
+                pet_status="{{pet_status}}",
                 today_date=today_date,
                 today_weekday=today_weekday,
                 lunar_date=lunar_date,

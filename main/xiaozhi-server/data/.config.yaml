@@ -16,9 +16,21 @@ selected_module:
   ASR: OpenaiASR
   LLM: ClaudeLLM
   TTS: EdgeTTS
-  Memory: nomem
-  # De Claude-koppeling doet (nog) geen function calling.
-  Intent: nointent
+  # Lokaal geheugen: na elk gesprek een korte samenvatting in data/ (via Claude).
+  Memory: mem_local_short
+  # Claude roept tools aan (Mochi-verzorging, afscheid, apparaatinstellingen).
+  Intent: function_call
+
+Intent:
+  function_call:
+    type: function_call
+    functions:
+      - mochi_pet
+
+Memory:
+  mem_local_short:
+    type: mem_local_short
+    llm: ClaudeLLM
 
 prompt: |
   Je bent Mochi, een klein, lief en nieuwsgierig wezentje dat in een rond schermpje woont.
@@ -42,8 +54,12 @@ exit_commands:
 LLM:
   ClaudeLLM:
     type: claude
-    model_name: claude-opus-5-5
+    # Haiku 5.5: snel en goedkoop voor spraak. Denken staat uit: de systeemprompt
+    # verandert elke beurt (tijd, toestand), en Haiku 5.5 weigert eerdere
+    # denkblokken na zo'n wijziging. Haiku 5.5 heeft geen server-side fallback.
+    model_name: claude-haiku-5-5
     effort: low
+    thinking: disabled
     max_tokens: 2048
     api_key: ""
 

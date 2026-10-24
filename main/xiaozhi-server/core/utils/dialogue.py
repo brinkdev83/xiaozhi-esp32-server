@@ -111,6 +111,12 @@ class Dialogue:
                 "{{current_time}}", datetime.now().strftime("%H:%M")
             )
 
+            # Mochi: actuele huisdiertoestand invullen
+            if "{{pet_status}}" in full_prompt:
+                from core.utils import mochi_pet
+
+                full_prompt = full_prompt.replace("{{pet_status}}", mochi_pet.status_text())
+
             # 填充记忆
             if memory_str is not None:
                 full_prompt = re.sub(
