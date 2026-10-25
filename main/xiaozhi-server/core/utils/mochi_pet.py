@@ -24,6 +24,26 @@ ASLEEP_DRIFT = {"verzadigd": -3, "energie": 15, "plezier": 0, "schoon": -1}
 NEEDS = ("verzadigd", "energie", "plezier", "schoon")
 LOW = 25
 
+# Growth: stage by age in hours (an egg hatches after its first hour).
+STAGES = (("ei", 0), ("baby", 1), ("kind", 48), ("volwassen", 144))
+STAGE_STYLE = {
+    "ei": "Je bent nog een ei. Je kunt alleen zacht piepen en tikken, een paar klanken; "
+          "warmte (knuffelen) vind je fijn. Eten, spelen en wassen kan nog niet.",
+    "baby": "Je bent een baby: korte zinnetjes van een paar woorden, kinderlijk, "
+            "nieuwsgierig, je verwart soms woorden.",
+    "kind": "Je bent een kind: speels en vol vragen, eenvoudige zinnen, grapjes.",
+    "volwassen": "Je bent volwassen: nog steeds lief en speels, maar wijzer; je praat in "
+                 "gewone zinnen en vertelt soms wat je hebt meegemaakt.",
+}
+
+# Asking for attention by itself: only by day, and not too often.
+ATTENTION_BELOW = 30
+ATTENTION_EVERY_S = 45 * 60
+DAY_HOURS = range(8, 22)
+ATTENTION_REASON = {
+    "verzadigd": "honger", "energie": "moe", "plezier": "verveling", "schoon": "vies",
+}
+
 _lock = threading.Lock()
 
 
@@ -31,7 +51,17 @@ def _new_state(now):
     return {
         "verzadigd": 80, "energie": 80, "plezier": 80, "schoon": 90,
         "band": 10, "slaapt": False, "geboren": now, "bijgewerkt": now,
+        "fase": "ei", "fase_sinds": now, "laatste_aandacht": 0,
     }
+
+
+def _stage_for(state):
+    hours = (state["bijgewerkt"] - state["geboren"]) / 3600
+    stage = STAGES[0][0]
+    for name, from_hours in STAGES:
+        if hours >= from_hours:
+            stage = name
+    return stage
 
 
 def _clamp(value):
@@ -45,15 +75,24 @@ def _load(now):
     except (FileNotFoundError, json.JSONDecodeError):
         state = _new_state(now)
     hours = min(max(0.0, (now - state["bijgewerkt"]) / 3600), MAX_CATCH_UP_HOURS)
-    drift = ASLEEP_DRIFT if state["slaapt"] else AWAKE_DRIFT
-    for need in NEEDS:
-        state[need] = _clamp(state[need] + drift[need] * hours)
-    if state["slaapt"] and state["energie"] >= 100:
-        state["slaapt"] = False  # uitgeslapen
-    # Neglect wears the bond down a little.
-    if any(state[n] < LOW for n in NEEDS):
-        state["band"] = _clamp(state["band"] - hours)
+    if state.get("fase", "baby") != "ei":  # an egg has no needs yet
+        drift = ASLEEP_DRIFT if state["slaapt"] else AWAKE_DRIFT
+        for need in NEEDS:
+            state[need] = _clamp(state[need] + drift[need] * hours)
+        if state["slaapt"] and state["energie"] >= 100:
+            state["slaapt"] = False  # uitgeslapen
+        # Neglect wears the bond down a little.
+        if any(state[n] < LOW for n in NEEDS):
+            state["band"] = _clamp(state["band"] - hours)
     state["bijgewerkt"] = now
+    # Growth (older state files have no stage yet).
+    state.setdefault("laatste_aandacht", 0)
+    stage = _stage_for(state)
+    if "fase" not in state:
+        state["fase"], state["fase_sinds"] = stage, state["geboren"]
+    elif state["fase"] != stage:
+        logger.bind(tag=TAG).info(f"Mochi groeit: {state['fase']} -> {stage}")
+        state["fase"], state["fase_sinds"] = stage, now
     return state
 
 
@@ -79,16 +118,52 @@ def _word(need, value):
 
 def _describe(state):
     age_days = int((state["bijgewerkt"] - state["geboren"]) // 86400)
+    stage = state["fase"]
+    lines = [f"Fase: {stage}. {STAGE_STYLE[stage]}"]
+    if state["bijgewerkt"] - state["fase_sinds"] < 2 * 3600 and state["fase_sinds"] > state["geboren"]:
+        lines.append(f"Je bent net een {stage} geworden; daar ben je trots of verbaasd over.")
+    if stage == "ei":
+        lines.append(f"Band met de gebruiker: {state['band']:.0f}/100.")
+        return "\n".join(lines)
     parts = [f"{n}: {state[n]:.0f}/100 ({_word(n, state[n])})" for n in NEEDS]
-    lines = [
+    lines += [
         "Mochi slaapt nu." if state["slaapt"] else "Mochi is wakker.",
         "; ".join(parts) + ".",
         f"Band met de gebruiker: {state['band']:.0f}/100. Leeftijd: {age_days} dagen.",
     ]
+    if stage == "volwassen":
+        lines.append("Door de goede zorg ben je lief en dankbaar." if state["band"] >= 50
+                     else "Je bent wat eigenwijs geworden omdat er niet altijd voor je gezorgd werd.")
     low = [n for n in NEEDS if state[n] < LOW]
     if low:
         lines.append("Dringend: " + ", ".join(low) + " is laag; laat dat merken.")
     return "\n".join(lines)
+
+
+def _mood(state):
+    if state["fase"] == "ei":
+        return "ei"
+    if state["slaapt"]:
+        return "slaapt"
+    lowest = min(NEEDS, key=lambda n: state[n])
+    if state[lowest] < LOW:
+        return ATTENTION_REASON[lowest]
+    return "blij" if state["plezier"] >= 60 else "gewoon"
+
+
+def _attention(state, now):
+    """Reason to call the user, or None. Records the call so it is not repeated soon."""
+    if state["fase"] == "ei" or state["slaapt"]:
+        return None
+    if time.localtime(now).tm_hour not in DAY_HOURS:
+        return None
+    if now - state["laatste_aandacht"] < ATTENTION_EVERY_S:
+        return None
+    lowest = min(NEEDS, key=lambda n: state[n])
+    if state[lowest] >= ATTENTION_BELOW:
+        return None
+    state["laatste_aandacht"] = now
+    return ATTENTION_REASON[lowest]
 
 
 def status_text():
@@ -99,11 +174,37 @@ def status_text():
         return _describe(state)
 
 
+def device_state(claim_attention=False):
+    """Compact state for the device's face and need bars.
+
+    With claim_attention the device is idle and may start a conversation; the
+    returned `aandacht` reason is then marked as used.
+    """
+    with _lock:
+        now = time.time()
+        state = _load(now)
+        reason = _attention(state, now) if claim_attention else None
+        _save(state)
+        if reason:
+            logger.bind(tag=TAG).info(f"Mochi vraagt aandacht: {reason}")
+        return {
+            "fase": state["fase"],
+            "slaapt": state["slaapt"],
+            "stemming": _mood(state),
+            "band": round(state["band"]),
+            **{n: round(state[n]) for n in NEEDS},
+            "aandacht": reason,
+        }
+
+
 def apply(action, **kwargs):
     """Apply a care action; returns a Dutch result for Claude to react to."""
     with _lock:
         state = _load(time.time())
-        result = _ACTIONS[action](state, **kwargs)
+        if state["fase"] == "ei" and action not in ("knuffelen", "reageren"):
+            result = "Mochi is nog een ei; dat kan pas als hij is uitgekomen. Warm houden (knuffelen) helpt wel."
+        else:
+            result = _ACTIONS[action](state, **kwargs)
         _save(state)
         logger.bind(tag=TAG).info(f"Mochi {action}: {result}")
         return result + "\nNieuwe toestand:\n" + _describe(state)

@@ -1,5 +1,6 @@
 import asyncio
 from aiohttp import web
+from core.api import mochi_handler
 from config.logger import setup_logging
 from core.api.ota_handler import OTAHandler
 from core.api.vision_handler import VisionHandler
@@ -62,6 +63,8 @@ class SimpleHttpServer:
                             ),
                         ]
                     )
+                # Mochi: toestand voor het gezichtje en de behoeftebalkjes op het bord
+                app.add_routes([web.get("/mochi/state", mochi_handler.handle_state)])
                 # 添加路由
                 app.add_routes(
                     [
