@@ -87,6 +87,21 @@ def mochi_wakker():
     return _result("wakker")
 
 
+@register_function("mochi_naam", _desc(
+    "mochi_naam",
+    "Geef het huisdier een nieuwe naam, alleen als de gebruiker daar duidelijk om vraagt "
+    "(bijvoorbeeld 'vanaf nu heet je Pip').",
+    {"naam": {"type": "string", "description": "De nieuwe naam, maximaal 20 tekens."}},
+    ["naam"],
+), ToolType.WAIT)
+def mochi_naam(naam=""):
+    try:
+        new = mochi_pet.set_name(naam)
+    except ValueError:
+        return ActionResponse(Action.REQLLM, "Die naam is leeg; de naam is niet veranderd.", None)
+    return ActionResponse(Action.REQLLM, f"Je heet nu {new}.", None)
+
+
 @register_function("mochi_gebeurtenis", _desc(
     "mochi_gebeurtenis",
     "Er gebeurde iets lichamelijks met Mochi's apparaatje. Gebruik dit wanneer een bericht "

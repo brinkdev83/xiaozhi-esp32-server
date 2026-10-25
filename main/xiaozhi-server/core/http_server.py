@@ -64,7 +64,10 @@ class SimpleHttpServer:
                         ]
                     )
                 # Mochi: toestand voor het gezichtje en de behoeftebalkjes op het bord
-                app.add_routes([web.get("/mochi/state", mochi_handler.handle_state)])
+                app.add_routes([
+                    web.get("/mochi/state", mochi_handler.handle_state),
+                    web.post("/mochi/naam", mochi_handler.handle_name),
+                ])
                 # 添加路由
                 app.add_routes(
                     [

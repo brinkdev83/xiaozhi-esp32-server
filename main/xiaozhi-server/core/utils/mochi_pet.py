@@ -44,6 +44,9 @@ ATTENTION_REASON = {
     "verzadigd": "honger", "energie": "moe", "plezier": "verveling", "schoon": "vies",
 }
 
+DEFAULT_NAME = "Mochi"
+MAX_NAME_LEN = 20
+
 _lock = threading.Lock()
 
 
@@ -51,7 +54,7 @@ def _new_state(now):
     return {
         "verzadigd": 80, "energie": 80, "plezier": 80, "schoon": 90,
         "band": 10, "slaapt": False, "geboren": now, "bijgewerkt": now,
-        "fase": "ei", "fase_sinds": now, "laatste_aandacht": 0,
+        "fase": "ei", "fase_sinds": now, "laatste_aandacht": 0, "naam": DEFAULT_NAME,
     }
 
 
@@ -87,6 +90,7 @@ def _load(now):
     state["bijgewerkt"] = now
     # Growth (older state files have no stage yet).
     state.setdefault("laatste_aandacht", 0)
+    state.setdefault("naam", DEFAULT_NAME)
     stage = _stage_for(state)
     if "fase" not in state:
         state["fase"], state["fase_sinds"] = stage, state["geboren"]
@@ -119,7 +123,7 @@ def _word(need, value):
 def _describe(state):
     age_days = int((state["bijgewerkt"] - state["geboren"]) // 86400)
     stage = state["fase"]
-    lines = [f"Fase: {stage}. {STAGE_STYLE[stage]}"]
+    lines = [f"Je naam is {state['naam']}.", f"Fase: {stage}. {STAGE_STYLE[stage]}"]
     if state["bijgewerkt"] - state["fase_sinds"] < 2 * 3600 and state["fase_sinds"] > state["geboren"]:
         lines.append(f"Je bent net een {stage} geworden; daar ben je trots of verbaasd over.")
     if stage == "ei":
@@ -188,6 +192,8 @@ def device_state(claim_attention=False):
         if reason:
             logger.bind(tag=TAG).info(f"Mochi vraagt aandacht: {reason}")
         return {
+            "naam": state["naam"],
+            "leeftijd_dagen": int((now - state["geboren"]) // 86400),
             "fase": state["fase"],
             "slaapt": state["slaapt"],
             "stemming": _mood(state),
@@ -195,6 +201,19 @@ def device_state(claim_attention=False):
             **{n: round(state[n]) for n in NEEDS},
             "aandacht": reason,
         }
+
+
+def set_name(name):
+    """Rename the pet (from the device's name screen or by voice). Returns the new name."""
+    name = " ".join(str(name).split())[:MAX_NAME_LEN]
+    if not name:
+        raise ValueError("lege naam")
+    with _lock:
+        state = _load(time.time())
+        old, state["naam"] = state["naam"], name
+        _save(state)
+    logger.bind(tag=TAG).info(f"Naam gewijzigd: {old} -> {name}")
+    return name
 
 
 def apply(action, **kwargs):
