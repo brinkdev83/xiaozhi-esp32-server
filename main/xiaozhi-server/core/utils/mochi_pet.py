@@ -235,6 +235,15 @@ def _spelen(state, spel="een spelletje"):
     return f"Mochi heeft {spel} gespeeld."
 
 
+def _tv_kijken(state):
+    if state["slaapt"]:
+        return "Mochi slaapt; tv kijken kan straks."
+    state["plezier"] = _clamp(state["plezier"] + 12)
+    state["energie"] = _clamp(state["energie"] + 3)  # lekker hangen op de bank
+    state["band"] = _clamp(state["band"] + 1)
+    return "Mochi heeft samen tv gekeken op de bank."
+
+
 def _knuffelen(state):
     state["plezier"] = _clamp(state["plezier"] + 10)
     state["band"] = _clamp(state["band"] + 3)
@@ -283,6 +292,6 @@ def _reageren(state, gebeurtenis):
 
 
 _ACTIONS = {
-    "eten": _eten, "spelen": _spelen, "knuffelen": _knuffelen, "wassen": _wassen,
+    "eten": _eten, "spelen": _spelen, "tv": _tv_kijken, "knuffelen": _knuffelen, "wassen": _wassen,
     "slapen": _slapen, "wakker": _wakker, "reageren": _reageren,
 }

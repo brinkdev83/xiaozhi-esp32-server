@@ -45,6 +45,15 @@ def mochi_spelen(spel="een spelletje"):
     return _result("spelen", spel=spel)
 
 
+@register_function("mochi_tv_kijken", _desc(
+    "mochi_tv_kijken",
+    "Mochi kijkt samen met de gebruiker tv op de bank in de woonkamer. Ontspannend: "
+    "geeft plezier zonder energie te kosten.",
+), ToolType.WAIT)
+def mochi_tv_kijken():
+    return _result("tv")
+
+
 @register_function("mochi_knuffelen", _desc(
     "mochi_knuffelen",
     "De gebruiker knuffelt, aait of troost Mochi.",
