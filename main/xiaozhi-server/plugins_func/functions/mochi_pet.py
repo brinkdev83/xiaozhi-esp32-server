@@ -87,6 +87,43 @@ def mochi_wakker():
     return _result("wakker")
 
 
+@register_function("mochi_drinken", _desc(
+    "mochi_drinken",
+    "Mochi krijgt iets te drinken (water, sap, melk) van de gebruiker.",
+    {"wat": {"type": "string", "description": "Wat Mochi drinkt, bijvoorbeeld 'een glas water'."}},
+    ["wat"],
+), ToolType.WAIT)
+def mochi_drinken(wat="water"):
+    return _result("drinken", wat=wat)
+
+
+@register_function("mochi_medicijn", _desc(
+    "mochi_medicijn",
+    "De gebruiker geeft Mochi een medicijn (uit het medicijnkastje), bijvoorbeeld als hij ziek is.",
+), ToolType.WAIT)
+def mochi_medicijn():
+    return _result("medicijn")
+
+
+@register_function("mochi_opruimen", _desc(
+    "mochi_opruimen",
+    "De gebruiker ruimt Mochi's poep op.",
+), ToolType.WAIT)
+def mochi_opruimen():
+    return _result("opruimen")
+
+
+@register_function("mochi_speeltuin", _desc(
+    "mochi_speeltuin",
+    "Mochi speelt op een toestel in de speeltuin. Geeft plezier en beweging, kost energie.",
+    {"toestel": {"type": "string",
+                 "enum": ["schommel", "glijbaan", "wip", "zandbak", "trampoline", "voetbal"]}},
+    ["toestel"],
+), ToolType.WAIT)
+def mochi_speeltuin(toestel="schommel"):
+    return _result("speeltuin", toestel=toestel)
+
+
 @register_function("mochi_naam", _desc(
     "mochi_naam",
     "Geef het huisdier een nieuwe naam, alleen als de gebruiker daar duidelijk om vraagt "
